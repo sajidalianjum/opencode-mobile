@@ -187,6 +187,10 @@ sealed interface OpenCodeSessionComposerAction {
 
     data object SelectModel : OpenCodeSessionComposerAction
 
+    /** Tap on the agent chip: cycle to the next agent, keeping keyboard focus. */
+    data object CycleMode : OpenCodeSessionComposerAction
+
+    /** Long-press on the agent chip: open the agent picker sheet. */
     data object SelectMode : OpenCodeSessionComposerAction
 
     data object SelectVariant : OpenCodeSessionComposerAction
@@ -943,7 +947,8 @@ private fun PickerChipsRow(
                     OpenCodeChoiceBadge(
                         label = state.selectedModeLabel,
                         selected = false,
-                        onClick = { onAction(OpenCodeSessionComposerAction.SelectMode) },
+                        onClick = { onAction(OpenCodeSessionComposerAction.CycleMode) },
+                        onLongClick = { onAction(OpenCodeSessionComposerAction.SelectMode) },
                         variant = OpenCodeChoiceBadgeVariant.Glass,
                     )
                     if (state.showVariant) {

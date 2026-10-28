@@ -46,6 +46,8 @@ fun OpenCodeAssistantMessage(
     presentation: OpenCodeAssistantMessagePresentation = OpenCodeAssistantMessagePresentation.Bubble,
     onTextTap: (() -> Unit)? = null,
 ) {
+    val fallbackDocument = rememberFallbackMarkdownDocument(text)
+    val effectiveDocument = renderedMarkdown ?: fallbackDocument
     val shape = RoundedCornerShape(AssistantMessageCornerRadius)
     val bubbleModifier =
         when (presentation) {
@@ -63,9 +65,9 @@ fun OpenCodeAssistantMessage(
                     .padding(horizontal = AssistantMessagePlainPaddingHorizontal)
         }
 
-    if (renderedMarkdown != null) {
+    if (effectiveDocument != null) {
         OpenCodeRenderedMarkdown(
-            document = renderedMarkdown,
+            document = effectiveDocument,
             variant = OpenCodeRenderedMarkdownVariant.AssistantMessage,
             isStreaming = isStreaming,
             modifier = bubbleModifier,

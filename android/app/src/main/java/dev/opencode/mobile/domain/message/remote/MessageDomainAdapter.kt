@@ -881,8 +881,8 @@ class MessageDomainAdapter(
                 file.mime
                     ?: dataUrl.takeIf { it.isNotEmpty() }?.let(AttachmentDataUrl::mimeFromDataUrl)
                     ?: file.name?.let(AttachmentDataUrl::mimeFromFilename)
-            )?.lowercase() ?: return null
-        val kind = AttachmentDataUrl.kind(mime) ?: return null
+            )?.lowercase() ?: AttachmentMime.BINARY
+        val kind = AttachmentDataUrl.kindOrFile(mime)
         if (dataUrl.isNotEmpty() &&
             (!dataUrl.startsWith("data:", ignoreCase = true) || !AttachmentDataUrl.validates(dataUrl, mime))
         ) {
@@ -1131,8 +1131,8 @@ class MessageDomainAdapter(
                 dto.mime
                     ?: dataUrl.takeIf { it.isNotEmpty() }?.let(AttachmentDataUrl::mimeFromDataUrl)
                     ?: dto.filename?.let(AttachmentDataUrl::mimeFromFilename)
-            )?.lowercase() ?: return null
-        val kind = AttachmentDataUrl.kind(mime) ?: return null
+            )?.lowercase() ?: AttachmentMime.BINARY
+        val kind = AttachmentDataUrl.kindOrFile(mime)
         if (dataUrl.isNotEmpty() &&
             (!dataUrl.startsWith("data:", ignoreCase = true) || !AttachmentDataUrl.validates(dataUrl, mime))
         ) {

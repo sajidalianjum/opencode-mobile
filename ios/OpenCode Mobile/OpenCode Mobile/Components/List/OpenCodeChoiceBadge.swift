@@ -13,18 +13,21 @@ struct OpenCodeChoiceBadge: View {
     let enabled: Bool
     let variant: OpenCodeChoiceBadgeVariant
     let action: () -> Void
+    let onLongPress: (() -> Void)?
 
     init(
         label: String,
         selected: Bool,
         enabled: Bool = true,
         variant: OpenCodeChoiceBadgeVariant = .standard,
+        onLongPress: (() -> Void)? = nil,
         action: @escaping () -> Void
     ) {
         self.label = label
         self.selected = selected
         self.enabled = enabled
         self.variant = variant
+        self.onLongPress = onLongPress
         self.action = action
     }
 
@@ -38,7 +41,7 @@ struct OpenCodeChoiceBadge: View {
     }
 
     private var standardBadge: some View {
-        Button(action: action) {
+        choiceBadgeButton {
             Text(label)
                 .font(OpenCodeTypography.button)
                 .foregroundStyle(standardLabelColor)
@@ -57,7 +60,7 @@ struct OpenCodeChoiceBadge: View {
     }
 
     private var glassBadge: some View {
-        Button(action: action) {
+        choiceBadgeButton {
             Text(label)
                 .font(OpenCodeTypography.button)
                 .foregroundStyle(glassLabelColor)
@@ -75,6 +78,33 @@ struct OpenCodeChoiceBadge: View {
         .disabled(!enabled)
         .opacity(enabled ? 1 : 0.5)
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    /// Tap runs `action`; long-press runs `onLongPress` when present. Mirrors
+    /// `OpenCodeButton`'s exclusive gesture so tap never fires on a hold.
+    @ViewBuilder
+    private func choiceBadgeButton<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        let button = Button(action: onLongPress == nil ? action : {}) {
+            content()
+        }
+        if onLongPress != nil {
+            button.simultaneousGesture(choiceBadgeExclusiveTap)
+        } else {
+            button
+        }
+    }
+
+    private var choiceBadgeExclusiveTap: some Gesture {
+        LongPressGesture(minimumDuration: 0.4)
+            .onEnded { _ in
+                guard enabled, let onLongPress else { return }
+                OpenCodeHaptics.contextAction()
+                onLongPress()
+            }
+            .exclusively(before: TapGesture().onEnded {
+                guard enabled else { return }
+                action()
+            })
     }
 
     private var standardLabelColor: Color {

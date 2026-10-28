@@ -66,7 +66,7 @@ class AttachmentUploadPolicyTest {
         )
         assertEquals(InlineRejection.Unsupported, AttachmentUploadPolicy.inlineRejection(small, textOnlyModel))
         assertEquals(
-            InlineRejection.Unsupported,
+            null,
             AttachmentUploadPolicy.inlineRejection(small.copy(kind = AttachmentKind.File, mime = "application/zip"), visionModel),
         )
         assertEquals(null, AttachmentUploadPolicy.inlineRejection(small.copy(kind = AttachmentKind.Text, mime = "text/plain"), textOnlyModel))

@@ -822,7 +822,7 @@ class MessageDomainAdapterTest {
     }
 
     @Test
-    fun toMessagePart_unsupportedDataUrlKind_returnsNull() {
+    fun toMessagePart_genericDataUrlKind_returnsFilePart() {
         val dto =
             MessagePartDto(
                 type = "file",
@@ -831,7 +831,12 @@ class MessageDomainAdapterTest {
                 filename = "archive.zip",
             )
 
-        assertNull(adapter.toMessagePart(dto))
+        val file = adapter.toMessagePart(dto) as MessagePart.File
+
+        assertEquals("archive.zip", file.filename)
+        assertEquals("application/zip", file.mime)
+        assertEquals(AttachmentKind.File, file.kind)
+        assertEquals("data:application/zip;base64,AA==", file.dataUrl)
     }
 
     @Test
@@ -1718,6 +1723,29 @@ class MessageDomainAdapterTest {
             message.promptSkills,
         )
         assertEquals(1, message.parts.filterIsInstance<MessagePart.File>().size)
+    }
+
+    @Test
+    fun projectV2_genericInlineFile_keepsFilePart() {
+        val message =
+            projectV2(
+                """
+                [
+                  {
+                    "id":"msg_user",
+                    "type":"user",
+                    "text":"unzip this",
+                    "files":[{"name":"data.zip","mime":"application/zip","uri":"data:application/zip;base64,YQ=="}],
+                    "time":{"created":1}
+                  }
+                ]
+                """,
+            ).single()
+
+        val file = message.parts.filterIsInstance<MessagePart.File>().single()
+        assertEquals("data.zip", file.filename)
+        assertEquals("application/zip", file.mime)
+        assertEquals(AttachmentKind.File, file.kind)
     }
 
     @Test

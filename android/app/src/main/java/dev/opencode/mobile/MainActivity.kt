@@ -1,5 +1,8 @@
 package dev.opencode.mobile
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
@@ -8,6 +11,7 @@ import android.view.Menu
 import android.view.WindowManager
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,6 +31,9 @@ import dev.opencode.mobile.domain.event.WorldSignals
 import dev.opencode.mobile.domain.preferences.AppLockPreferences
 import dev.opencode.mobile.domain.security.AppLockAvailability
 import dev.opencode.mobile.domain.security.AppLockPolicy
+import dev.opencode.mobile.notification.AgentNotificationHelper
+import dev.opencode.mobile.notification.AppVisibility
+import dev.opencode.mobile.notification.NotificationDeepLink
 import dev.opencode.mobile.theme.OpenCodeTheme
 import dev.opencode.mobile.ui.components.LocalOpenCodeInputFocusRegistry
 import dev.opencode.mobile.ui.diagnostic.PerformanceOverlayHost
@@ -41,6 +48,18 @@ import javax.inject.Inject
 class MainActivity : FragmentActivity() {
     @Inject lateinit var worldSignals: WorldSignals
 
+    @Inject lateinit var notificationDeepLink: NotificationDeepLink
+
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (!granted) {
+                getSharedPreferences(PREFS_NOTIFICATIONS, MODE_PRIVATE)
+                    .edit()
+                    .putBoolean(KEY_NOTIFICATION_PROMPTED, true)
+                    .apply()
+            }
+        }
+
     private val keyboardShortcuts = KeyboardShortcutHost()
 
     // Privacy cover and optional app lock (#755). The cover goes up in onPause when App Lock
@@ -53,6 +72,8 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+        handleNotificationIntent(intent)
+        maybeRequestNotificationPermission()
         // Rotation, theme, or locale recreation is not a return from the background.
         wasInBackground = savedInstanceState?.getBoolean(STATE_UNLOCKED_ACROSS_RECREATE) != true
         worldSignals.register()
@@ -92,7 +113,7 @@ class MainActivity : FragmentActivity() {
                             Modifier.fillMaxSize()
                         },
                     ) {
-                        MainNavigation()
+                        MainNavigation(notificationDeepLink)
                         PerformanceOverlayHost()
                     }
                     // MainNavigation applies the theme inside itself; the cover sits beside it.
@@ -102,6 +123,42 @@ class MainActivity : FragmentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleNotificationIntent(intent)
+    }
+
+    /**
+     * A notification tap carries the session that finished. Opening its chat
+     * clears the tray entries; the deep link below pushes the route.
+     */
+    private fun handleNotificationIntent(intent: Intent?) {
+        val sessionId = intent?.getStringExtra(AgentNotificationHelper.EXTRA_SESSION_ID)
+        if (sessionId.isNullOrBlank()) return
+        val title = intent.getStringExtra(AgentNotificationHelper.EXTRA_SESSION_TITLE).orEmpty()
+        val worktree = intent.getStringExtra(AgentNotificationHelper.EXTRA_WORKTREE).orEmpty()
+        AgentNotificationHelper(this).cancelSessionNotifications(sessionId)
+        AppVisibility.visibleSessionId = sessionId
+        notificationDeepLink.open(sessionId = sessionId, title = title, worktree = worktree)
+    }
+
+    /** One-time POST_NOTIFICATIONS prompt so background completions can notify. */
+    private fun maybeRequestNotificationPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+        val prefs = getSharedPreferences(PREFS_NOTIFICATIONS, MODE_PRIVATE)
+        // Ask twice at most: on launch, and once more on the next launch after
+        // a denial. After that the user must enable it in system settings.
+        if (prefs.getBoolean(KEY_NOTIFICATION_PROMPTED, false)) return
+        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        prefs.edit().putBoolean(KEY_NOTIFICATION_PROMPTED, true).apply()
     }
 
     override fun onResume() {
@@ -226,5 +283,7 @@ class MainActivity : FragmentActivity() {
 
     private companion object {
         const val STATE_UNLOCKED_ACROSS_RECREATE = "appLock.unlockedAcrossRecreate"
+        const val PREFS_NOTIFICATIONS = "notification_prefs"
+        const val KEY_NOTIFICATION_PROMPTED = "notification_permission_prompted"
     }
 }

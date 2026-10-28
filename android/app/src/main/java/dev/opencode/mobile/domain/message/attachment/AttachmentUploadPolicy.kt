@@ -54,7 +54,8 @@ object AttachmentUploadPolicy {
 
     /**
      * Why [attachment] cannot ride in the prompt as a data URL, or null when it can: over the inline
-     * cap, or a type the model does not read (a generic file never travels inline).
+     * cap, or a type the selected model does not read. Generic files travel inline like text —
+     * the v2 `files` API takes any `data:` URI — so only the model capability gates them.
      */
     fun inlineRejection(
         attachment: Attachment,
@@ -62,8 +63,7 @@ object AttachmentUploadPolicy {
     ): InlineRejection? =
         when {
             attachment.byteCount > AttachmentLimits.MAX_DECODED_BYTES -> InlineRejection.TooLarge
-            attachment.kind == AttachmentKind.File || model?.acceptsAttachmentKind(attachment.kind) == false ->
-                InlineRejection.Unsupported
+            model?.acceptsAttachmentKind(attachment.kind) == false -> InlineRejection.Unsupported
             else -> null
         }
 

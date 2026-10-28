@@ -427,6 +427,7 @@ private extension OpenCodeSessionComposerAction {
         case .textChanged: "Text changed"
         case .selectModel: "Select model"
         case .selectMode: "Select mode"
+        case .cycleMode: "Cycle mode"
         case .selectVariant: "Select variant"
         case .attach: "Attach"
         case .openCommands: "Open commands"

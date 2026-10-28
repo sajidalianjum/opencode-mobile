@@ -1043,6 +1043,16 @@ class SessionChatViewModel
             composer.selectMode(mode)
         }
 
+        /** Agent chip tap: cycle without opening the picker, so focus stays put. */
+        fun selectNextMode() {
+            val next = composer.selectNextMode() ?: return
+            logAction(
+                actionId = ProductAnalytics.Action.COMPOSER_CYCLE_MODE,
+                screenId = ProductAnalytics.Screen.SESSION_CHAT,
+                parameters = mapOf(ProductAnalytics.Param.MODE to next),
+            )
+        }
+
         fun selectVariant(variant: String) {
             logAction(
                 actionId = ProductAnalytics.Action.VARIANT_PICKER_SELECT,
