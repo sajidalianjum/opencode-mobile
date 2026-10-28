@@ -603,6 +603,16 @@ final class SessionChatViewModel {
         composer.selectMode(mode)
     }
 
+    /// Agent chip tap: cycle without opening the picker, so focus stays put.
+    func selectNextMode() {
+        guard let next = composer.selectNextMode() else { return }
+        ProductAnalytics.logUserAction(
+            screenId: ProductAnalytics.Screen.sessionChat,
+            actionId: ProductAnalytics.Action.composerCycleMode,
+            parameters: [ProductAnalytics.Param.mode: next]
+        )
+    }
+
     func selectVariant(_ variant: String) {
         ProductAnalytics.logUserAction(
             screenId: ProductAnalytics.Screen.sessionVariantPicker,

@@ -178,6 +178,7 @@ enum ProductAnalytics {
         static let composerOpenModelPicker = "composer_open_model_picker"
         static let composerRetryModelCatalog = "composer_retry_model_catalog"
         static let composerOpenModePicker = "composer_open_mode_picker"
+        static let composerCycleMode = "composer_cycle_mode"
         static let composerOpenVariantPicker = "composer_open_variant_picker"
         static let composerOpenCommands = "composer_open_commands"
         static let composerAttach = "composer_attach"

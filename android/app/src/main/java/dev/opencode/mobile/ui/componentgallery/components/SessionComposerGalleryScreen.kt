@@ -439,6 +439,7 @@ private val OpenCodeSessionComposerAction.label: String
             is OpenCodeSessionComposerAction.TextChanged -> "Text changed"
             OpenCodeSessionComposerAction.SelectModel -> "Select model"
             OpenCodeSessionComposerAction.SelectMode -> "Select mode"
+            OpenCodeSessionComposerAction.CycleMode -> "Cycle mode"
             OpenCodeSessionComposerAction.SelectVariant -> "Select variant"
             OpenCodeSessionComposerAction.Attach -> "Attach"
             OpenCodeSessionComposerAction.OpenCommands -> "Open commands"

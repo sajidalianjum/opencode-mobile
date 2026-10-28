@@ -1352,6 +1352,9 @@ private fun SessionChatScreenBody(
                                         logChatAction(ProductAnalytics.Action.COMPOSER_OPEN_MODE_PICKER)
                                         activePicker = ComposerPickerKind.Mode
                                     }
+                                    OpenCodeSessionComposerAction.CycleMode -> {
+                                        viewModel.selectNextMode()
+                                    }
                                     OpenCodeSessionComposerAction.SelectVariant -> {
                                         logChatAction(ProductAnalytics.Action.COMPOSER_OPEN_VARIANT_PICKER)
                                         activePicker = ComposerPickerKind.Variant

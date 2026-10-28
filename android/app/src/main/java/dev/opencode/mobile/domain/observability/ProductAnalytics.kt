@@ -186,6 +186,7 @@ object ProductAnalytics {
         const val COMPOSER_OPEN_MODEL_PICKER = "composer_open_model_picker"
         const val COMPOSER_RETRY_MODEL_CATALOG = "composer_retry_model_catalog"
         const val COMPOSER_OPEN_MODE_PICKER = "composer_open_mode_picker"
+        const val COMPOSER_CYCLE_MODE = "composer_cycle_mode"
         const val COMPOSER_OPEN_VARIANT_PICKER = "composer_open_variant_picker"
         const val COMPOSER_OPEN_COMMANDS = "composer_open_commands"
         const val COMPOSER_ATTACH = "composer_attach"

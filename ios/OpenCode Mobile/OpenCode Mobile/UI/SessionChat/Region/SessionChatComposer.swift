@@ -946,6 +946,23 @@ final class SessionChatComposer {
         persistCurrentSelection(updatePreference: false)
     }
 
+    /// Tap on the agent chip: move to the next agent in catalog order, wrapping
+    /// around, without opening the picker so the keyboard keeps focus.
+    /// - Returns: the new agent id, or nil when there is nothing to cycle to.
+    @discardableResult
+    func selectNextMode() -> String? {
+        guard let next = nextSelectableAgentID(current: state.composer.selectedMode, catalog: state.composer.selectableAgents) else {
+            return nil
+        }
+        guard next.compare(state.composer.selectedMode, options: .caseInsensitive) != .orderedSame else {
+            return nil
+        }
+        settleProvisionalSelection()
+        updateComposer { $0.selectedMode = next }
+        persistCurrentSelection(updatePreference: false)
+        return next
+    }
+
     func selectVariant(_ variant: String) {
         settleProvisionalSelection()
         updateComposer { composer in
@@ -2017,4 +2034,17 @@ final class SessionChatComposer {
             }
         }
     }
+}
+
+/// Next agent id in catalog order, wrapping around. Nil when there is nothing
+/// to cycle to (empty or single-agent catalog); unknown current starts at the
+/// first agent.
+func nextSelectableAgentID(current: String, catalog: [SelectableAgent]) -> String? {
+    guard catalog.count > 1 else { return nil }
+    guard let index = catalog.firstIndex(where: {
+        $0.id.compare(current, options: .caseInsensitive) == .orderedSame
+    }) else {
+        return catalog.first?.id
+    }
+    return catalog[(index + 1) % catalog.count].id
 }

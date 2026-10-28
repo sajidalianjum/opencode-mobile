@@ -1090,6 +1090,20 @@ class SessionChatComposer(
         persistCurrentSelection(updatePreference = false)
     }
 
+    /**
+     * Tap on the agent chip: move to the next agent in catalog order, wrapping
+     * around, without opening the picker so the keyboard keeps focus.
+     * Returns the new agent id, or null when there is nothing to cycle to.
+     */
+    fun selectNextMode(): String? {
+        val agents = _state.value.composer.selectableAgents
+        val next = nextSelectableAgentId(_state.value.composer.selectedMode, agents) ?: return null
+        if (next.equals(_state.value.composer.selectedMode, ignoreCase = true)) return null
+        updateComposer { it.copy(selectedMode = next) }
+        persistCurrentSelection(updatePreference = false)
+        return next
+    }
+
     fun selectVariant(variant: String) {
         updateComposer { composer ->
             if (variant == ModelSelection.DefaultVariantLabel) {
@@ -2183,4 +2197,19 @@ class SessionChatComposer(
             override val sourceName = "new-session-preference"
         }
     }
+}
+
+/**
+ * Next agent id in catalog order, wrapping around. Null when there is nothing
+ * to cycle to (empty or single-agent catalog); unknown current starts at the
+ * first agent.
+ */
+internal fun nextSelectableAgentId(
+    current: String,
+    catalog: List<SelectableAgent>,
+): String? {
+    if (catalog.size <= 1) return null
+    val index = catalog.indexOfFirst { it.id.equals(current, ignoreCase = true) }
+    if (index == -1) return catalog.first().id
+    return catalog[(index + 1) % catalog.size].id
 }

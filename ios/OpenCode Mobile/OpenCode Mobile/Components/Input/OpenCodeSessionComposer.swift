@@ -215,6 +215,9 @@ extension OpenCodeSessionComposerState {
 enum OpenCodeSessionComposerAction {
     case textChanged(text: String, selectionStart: Int, selectionEnd: Int)
     case selectModel
+    /// Tap on the agent chip: cycle to the next agent, keeping keyboard focus.
+    case cycleMode
+    /// Long-press on the agent chip: open the agent picker sheet.
     case selectMode
     case selectVariant
     case attach
@@ -588,7 +591,8 @@ struct OpenCodeSessionComposer: View {
                         label: prompt.selectedModeLabel,
                         selected: false,
                         variant: .glass,
-                        action: { onAction(.selectMode) }
+                        onLongPress: { onAction(.selectMode) },
+                        action: { onAction(.cycleMode) }
                     )
                     if prompt.showVariant {
                         OpenCodeChoiceBadge(

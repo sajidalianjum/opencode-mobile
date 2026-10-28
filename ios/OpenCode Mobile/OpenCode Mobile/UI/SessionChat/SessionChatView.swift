@@ -1598,6 +1598,8 @@ struct SessionChatView: View {
                 case .selectMode:
                     logChatAction(ProductAnalytics.Action.composerOpenModePicker)
                     activePicker = .mode
+                case .cycleMode:
+                    viewModel.selectNextMode()
                 case .selectVariant:
                     logChatAction(ProductAnalytics.Action.composerOpenVariantPicker)
                     activePicker = .variant

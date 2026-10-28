@@ -3,6 +3,7 @@ package dev.opencode.mobile.ui.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -14,6 +15,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -44,6 +47,7 @@ fun OpenCodeChoiceBadge(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     variant: OpenCodeChoiceBadgeVariant = OpenCodeChoiceBadgeVariant.Standard,
+    onLongClick: (() -> Unit)? = null,
 ) {
     when (variant) {
         OpenCodeChoiceBadgeVariant.Standard ->
@@ -53,6 +57,7 @@ fun OpenCodeChoiceBadge(
                 enabled = enabled,
                 onClick = onClick,
                 modifier = modifier,
+                onLongClick = onLongClick,
             )
         OpenCodeChoiceBadgeVariant.Glass ->
             GlassChoiceBadge(
@@ -61,6 +66,7 @@ fun OpenCodeChoiceBadge(
                 enabled = enabled,
                 onClick = onClick,
                 modifier = modifier,
+                onLongClick = onLongClick,
             )
     }
 }
@@ -72,6 +78,7 @@ private fun StandardChoiceBadge(
     enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
 ) {
     val containerColor =
         when {
@@ -96,7 +103,7 @@ private fun StandardChoiceBadge(
             modifier
                 .clip(StandardShape)
                 .semantics { this.selected = selected }
-                .clickable(enabled = enabled, onClick = onClick),
+                .then(choiceBadgeClickable(enabled = enabled, onClick = onClick, onLongClick = onLongClick)),
         shape = StandardShape,
         color = containerColor,
         contentColor = contentColor,
@@ -121,6 +128,7 @@ private fun GlassChoiceBadge(
     enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
 ) {
     val textStrong = openCodeColor("text-strong")
     val labelColor =
@@ -138,7 +146,7 @@ private fun GlassChoiceBadge(
                 .semantics { this.selected = selected }
                 .clip(GlassShape)
                 .background(fill)
-                .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+                .then(choiceBadgeClickable(enabled = enabled, onClick = onClick, onLongClick = onLongClick))
                 .heightIn(min = 36.dp)
                 .padding(horizontal = BadgePaddingHorizontal, vertical = BadgePaddingVertical),
         contentAlignment = Alignment.Center,
@@ -150,6 +158,29 @@ private fun GlassChoiceBadge(
             maxLines = 1,
         )
     }
+}
+
+@Composable
+private fun choiceBadgeClickable(
+    enabled: Boolean,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)?,
+): Modifier {
+    if (onLongClick == null) {
+        return Modifier.clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+    }
+    val haptic = LocalHapticFeedback.current
+    return Modifier.combinedClickable(
+        enabled = enabled,
+        role = Role.Button,
+        onClick = onClick,
+        onLongClick = {
+            // Haptics mirror OpenCodeButton's long-press path.
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            onLongClick()
+        },
+        onLongClickLabel = "More options",
+    )
 }
 
 @Preview(showBackground = true)
