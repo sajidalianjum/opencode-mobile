@@ -1,11 +1,17 @@
 package dev.opencode.mobile.ui.sessionchat.view
 
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.opencode.mobile.ProductAnalytics
@@ -15,7 +21,11 @@ import dev.opencode.mobile.domain.model.ModelSelection
 import dev.opencode.mobile.domain.model.ModelSelectionCatalog
 import dev.opencode.mobile.domain.model.ModelSelectionOption
 import dev.opencode.mobile.domain.model.ModelSelectionProvider
+import dev.opencode.mobile.domain.model.favoriteOptions
+import dev.opencode.mobile.domain.model.isFavorite
+import dev.opencode.mobile.domain.model.sortedWithFavoritesFirst
 import dev.opencode.mobile.domain.text.TitleCaseIdentifier
+import dev.opencode.mobile.theme.openCodeColor
 import dev.opencode.mobile.ui.components.OpenCodeBottomSheet
 import dev.opencode.mobile.ui.components.OpenCodeBottomSheetEntry
 import dev.opencode.mobile.ui.components.OpenCodeBottomSheetHeaderAction
@@ -59,6 +69,7 @@ internal fun SessionChatPickerSheet(
     activeModelProviderId: String?,
     modelFilterText: String,
     modelOptions: List<ModelSelectionOption>,
+    favoriteIds: Set<String>,
     selectedModel: ModelSelectionOption?,
     selectedMode: String,
     selectableAgents: List<SelectableAgent>,
@@ -68,6 +79,7 @@ internal fun SessionChatPickerSheet(
     onActiveModelProviderIdChange: (String?) -> Unit,
     onModelFilterTextChange: (String) -> Unit,
     onSelectModel: (ModelSelectionOption) -> Unit,
+    onToggleModelFavorite: (ModelSelectionOption) -> Unit,
     onSelectMode: (String) -> Unit,
     onSelectVariant: (String) -> Unit,
 ) {
@@ -167,9 +179,10 @@ internal fun SessionChatPickerSheet(
         when (activePicker) {
             ComposerPickerKind.Model ->
                 ModelPickerSheetContent(
-                    providers = modelCatalog.providers,
+                    catalog = modelCatalog,
                     activeProvider = activeModelProvider,
                     selectedModel = selectedModel,
+                    favoriteIds = favoriteIds,
                     filterText = modelFilterText,
                     onSelectProvider = { provider ->
                         ProductAnalytics.logUserAction(
@@ -180,6 +193,7 @@ internal fun SessionChatPickerSheet(
                         onModelFilterTextChange("")
                     },
                     onSelectModel = onSelectModel,
+                    onToggleFavorite = onToggleModelFavorite,
                 )
             ComposerPickerKind.Mode ->
                 selectableAgents.forEach { agent ->
@@ -208,14 +222,37 @@ internal fun SessionChatPickerSheet(
 
 @Composable
 private fun ModelPickerSheetContent(
-    providers: List<ModelSelectionProvider>,
+    catalog: ModelSelectionCatalog,
     activeProvider: ModelSelectionProvider?,
     selectedModel: ModelSelectionOption?,
+    favoriteIds: Set<String>,
     filterText: String,
     onSelectProvider: (ModelSelectionProvider) -> Unit,
     onSelectModel: (ModelSelectionOption) -> Unit,
+    onToggleFavorite: (ModelSelectionOption) -> Unit,
 ) {
     if (activeProvider == null) {
+        // Global favorites sit directly at the top of the list. Each shows its provider
+        // (`model · provider`) so the same model name from different providers is unambiguous.
+        val favorites =
+            remember(catalog, favoriteIds, filterText) {
+                catalog.favoriteOptions(favoriteIds).filter { it.matchesFilter(filterText) }
+            }
+        favorites.forEach { model ->
+            ModelPickerEntry(
+                title = model.displayLabel,
+                selected = model == selectedModel,
+                starred = true,
+                starContentDescription = "Unstar ${model.displayLabel}",
+                onSelect = { onSelectModel(model) },
+                onToggleStar = { onToggleFavorite(model) },
+                modifier = Modifier.openCodeBottomSheetScrollTarget(model),
+            )
+        }
+        val providers =
+            remember(catalog, favoriteIds) {
+                catalog.providers.sortedWithFavoritesFirst(favoriteIds)
+            }
         providers.forEach { provider ->
             OpenCodeBottomSheetEntry(
                 title = provider.label,
@@ -224,7 +261,12 @@ private fun ModelPickerSheetContent(
             )
         }
     } else {
-        val filteredModels = activeProvider.models.filter { it.matchesFilter(filterText) }
+        val filteredModels =
+            remember(activeProvider, favoriteIds, filterText) {
+                activeProvider.models
+                    .filter { it.matchesFilter(filterText) }
+                    .sortedWithFavoritesFirst(favoriteIds)
+            }
         if (filteredModels.isEmpty()) {
             OpenCodeBottomSheetEntry(
                 title = "No models match your filter",
@@ -233,13 +275,61 @@ private fun ModelPickerSheetContent(
             )
         } else {
             filteredModels.forEach { model ->
-                OpenCodeBottomSheetEntry(
+                val starred = model.isFavorite(favoriteIds)
+                ModelPickerEntry(
                     title = model.modelLabel,
                     selected = model == selectedModel,
-                    onClick = { onSelectModel(model) },
+                    starred = starred,
+                    starContentDescription =
+                        if (starred) {
+                            "Unstar ${model.displayLabel}"
+                        } else {
+                            "Star ${model.displayLabel}"
+                        },
+                    onSelect = { onSelectModel(model) },
+                    onToggleStar = { onToggleFavorite(model) },
                     modifier = Modifier.openCodeBottomSheetScrollTarget(model),
                 )
             }
+        }
+    }
+}
+
+/** A model row: tap selects, the star toggles the global favorite without selecting. */
+@Composable
+private fun ModelPickerEntry(
+    title: String,
+    selected: Boolean,
+    starred: Boolean,
+    starContentDescription: String,
+    onSelect: () -> Unit,
+    onToggleStar: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        OpenCodeBottomSheetEntry(
+            title = title,
+            selected = selected,
+            onClick = onSelect,
+            modifier = Modifier.weight(1f),
+        )
+        IconButton(
+            onClick = onToggleStar,
+            modifier = Modifier.size(36.dp),
+        ) {
+            Icon(
+                imageVector = OpenCodeIcons.Star,
+                contentDescription = starContentDescription,
+                tint =
+                    if (starred) {
+                        openCodeColor("text-interactive-base")
+                    } else {
+                        openCodeColor("icon-strong-base")
+                    },
+            )
         }
     }
 }

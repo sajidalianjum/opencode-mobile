@@ -1591,6 +1591,7 @@ private fun SessionChatScreenBody(
             activeModelProviderId = activeModelProviderId,
             modelFilterText = modelFilterText,
             modelOptions = uiState.composer.modelOptions,
+            favoriteIds = uiState.composer.favoriteModelIds,
             selectedModel = uiState.composer.selectedModel?.option,
             selectedMode = uiState.composer.selectedMode,
             selectableAgents = uiState.composer.selectableAgents,
@@ -1609,6 +1610,7 @@ private fun SessionChatScreenBody(
                 activeModelProviderId = null
                 modelFilterText = ""
             },
+            onToggleModelFavorite = { model -> viewModel.toggleModelFavorite(model) },
             onSelectMode = { mode ->
                 viewModel.selectMode(mode)
                 activePicker = null

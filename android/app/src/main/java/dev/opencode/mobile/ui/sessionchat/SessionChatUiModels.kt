@@ -48,6 +48,8 @@ data class SessionChatComposerState(
     val modelNotice: String? = null,
     val isModelSelectionReady: Boolean = false,
     val modelCatalogError: String? = null,
+    /** Global favorite model ids (`ModelSelectionOption.id`); rendered at the top of the model picker. */
+    val favoriteModelIds: Set<String> = emptySet(),
     val agentMentions: List<AgentMention> = emptyList(),
     val fileMentions: List<FileMention> = emptyList(),
     val skillMentions: List<SkillMention> = emptyList(),

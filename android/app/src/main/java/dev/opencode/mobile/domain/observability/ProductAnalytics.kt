@@ -240,6 +240,8 @@ object ProductAnalytics {
         const val MODEL_PICKER_BACK_TO_PROVIDERS = "model_picker_back_to_providers"
         const val MODEL_PICKER_FILTER = "model_picker_filter"
         const val MODEL_PICKER_SELECT_MODEL = "model_picker_select_model"
+        const val MODEL_PICKER_STAR_MODEL = "model_picker_star_model"
+        const val MODEL_PICKER_UNSTAR_MODEL = "model_picker_unstar_model"
         const val MODE_PICKER_DISMISS = "mode_picker_dismiss"
         const val MODE_PICKER_SELECT = "mode_picker_select"
         const val VARIANT_PICKER_DISMISS = "variant_picker_dismiss"
