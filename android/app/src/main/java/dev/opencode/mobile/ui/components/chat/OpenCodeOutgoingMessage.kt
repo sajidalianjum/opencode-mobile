@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -82,62 +83,14 @@ fun OpenCodeOutgoingMessage(
             resolvedContent.forEach { part ->
                 when (part) {
                     is OpenCodeOutgoingMessageContent.Text ->
-                        Surface(
-                            modifier =
-                                Modifier
-                                    .widthIn(max = maxBubbleWidth)
-                                    .clip(OutgoingMessageShape)
-                                    .then(
-                                        outgoingMessageInteractionModifier(
-                                            onClick = onClick,
-                                            onLongClick = onLongClick,
-                                        ),
-                                    ),
-                            shape = OutgoingMessageShape,
-                            color = bubbleColor,
-                            contentColor = bubbleTextColor,
-                        ) {
-                            Column(
-                                modifier =
-                                    Modifier.padding(
-                                        horizontal = OutgoingMessagePaddingHorizontal,
-                                        vertical = OutgoingMessagePaddingVertical,
-                                    ),
-                                horizontalAlignment = Alignment.End,
-                            ) {
-                                if (part.renderedMarkdown != null) {
-                                    OpenCodeRenderedMarkdown(
-                                        document = part.renderedMarkdown,
-                                        variant = OpenCodeRenderedMarkdownVariant.OutgoingMessage,
-                                        modifier = Modifier.widthIn(max = maxBubbleWidth - OutgoingMessagePaddingHorizontal * 2),
-                                    )
-                                } else {
-                                    val highlights = commandTokenHighlightRanges(part.text)
-                                    val highlightColor = openCodeColor("syntax-type")
-                                    Text(
-                                        text =
-                                            if (highlights.isEmpty()) {
-                                                AnnotatedString(part.text)
-                                            } else {
-                                                buildAnnotatedString {
-                                                    append(part.text)
-                                                    highlights.forEach { highlight ->
-                                                        addStyle(
-                                                            SpanStyle(color = highlightColor),
-                                                            highlight.first,
-                                                            highlight.last + 1,
-                                                        )
-                                                    }
-                                                }
-                                            },
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = bubbleTextColor,
-                                        overflow = TextOverflow.Clip,
-                                        modifier = Modifier.widthIn(max = maxBubbleWidth - OutgoingMessagePaddingHorizontal * 2),
-                                    )
-                                }
-                            }
-                        }
+                        OutgoingTextBubble(
+                            part = part,
+                            maxBubbleWidth = maxBubbleWidth,
+                            bubbleColor = bubbleColor,
+                            bubbleTextColor = bubbleTextColor,
+                            onClick = onClick,
+                            onLongClick = onLongClick,
+                        )
 
                     is OpenCodeOutgoingMessageContent.Attachment ->
                         OpenCodeMessageAttachment(
@@ -219,3 +172,72 @@ private val OutgoingMessageLongPreviewText =
     Keep the answer practical and note where pricing depends on the booking channel or destination.
     Then summarize the recommendation in one concise sentence for a mobile chat user.
     """.trimIndent()
+
+@Composable
+private fun OutgoingTextBubble(
+    part: OpenCodeOutgoingMessageContent.Text,
+    maxBubbleWidth: androidx.compose.ui.unit.Dp,
+    bubbleColor: Color,
+    bubbleTextColor: Color,
+    onClick: (() -> Unit)?,
+    onLongClick: (() -> Unit)?,
+) {
+    val fallbackDocument = rememberFallbackMarkdownDocument(part.text)
+    val effectiveDocument = part.renderedMarkdown ?: fallbackDocument
+    Surface(
+        modifier =
+            Modifier
+                .widthIn(max = maxBubbleWidth)
+                .clip(OutgoingMessageShape)
+                .then(
+                    outgoingMessageInteractionModifier(
+                        onClick = onClick,
+                        onLongClick = onLongClick,
+                    ),
+                ),
+        shape = OutgoingMessageShape,
+        color = bubbleColor,
+        contentColor = bubbleTextColor,
+    ) {
+        Column(
+            modifier =
+                Modifier.padding(
+                    horizontal = OutgoingMessagePaddingHorizontal,
+                    vertical = OutgoingMessagePaddingVertical,
+                ),
+            horizontalAlignment = Alignment.End,
+        ) {
+            if (effectiveDocument != null) {
+                OpenCodeRenderedMarkdown(
+                    document = effectiveDocument,
+                    variant = OpenCodeRenderedMarkdownVariant.OutgoingMessage,
+                    modifier = Modifier.widthIn(max = maxBubbleWidth - OutgoingMessagePaddingHorizontal * 2),
+                )
+            } else {
+                val highlights = commandTokenHighlightRanges(part.text)
+                val highlightColor = openCodeColor("syntax-type")
+                Text(
+                    text =
+                        if (highlights.isEmpty()) {
+                            AnnotatedString(part.text)
+                        } else {
+                            buildAnnotatedString {
+                                append(part.text)
+                                highlights.forEach { highlight ->
+                                    addStyle(
+                                        SpanStyle(color = highlightColor),
+                                        highlight.first,
+                                        highlight.last + 1,
+                                    )
+                                }
+                            }
+                        },
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = bubbleTextColor,
+                    overflow = TextOverflow.Clip,
+                    modifier = Modifier.widthIn(max = maxBubbleWidth - OutgoingMessagePaddingHorizontal * 2),
+                )
+            }
+        }
+    }
+}

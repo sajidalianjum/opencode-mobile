@@ -1550,17 +1550,34 @@ private fun FallbackMessageBubble(
     text: String,
     modifier: Modifier = Modifier,
 ) {
-    Text(
-        text = "$roleLabel: ${text.ifBlank { "…" }}",
+    val fallbackDocument = dev.opencode.mobile.ui.components.rememberFallbackMarkdownDocument(text)
+    Column(
         modifier =
             modifier
                 .background(
                     MaterialTheme.colorScheme.surfaceVariant,
                     RoundedCornerShape(12.dp),
                 ).padding(horizontal = 12.dp, vertical = 8.dp),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = roleLabel,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (fallbackDocument != null) {
+            dev.opencode.mobile.ui.components.OpenCodeRenderedMarkdown(
+                document = fallbackDocument,
+                variant = dev.opencode.mobile.ui.components.OpenCodeRenderedMarkdownVariant.Standalone,
+            )
+        } else {
+            Text(
+                text = text.ifBlank { "…" },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }
 
 /**

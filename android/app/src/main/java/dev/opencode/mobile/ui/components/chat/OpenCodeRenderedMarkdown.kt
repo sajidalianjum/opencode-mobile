@@ -2,6 +2,7 @@ package dev.opencode.mobile.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.horizontalScroll
@@ -37,6 +38,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
@@ -185,31 +187,12 @@ private fun MarkdownBlockView(
                 modifier = Modifier.padding(top = if (variant == OpenCodeRenderedMarkdownVariant.Standalone) 2.dp else 0.dp),
             )
         is MarkdownBlock.BlockQuote ->
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(IntrinsicSize.Min),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Box(
-                    modifier =
-                        Modifier
-                            .width(3.dp)
-                            .fillMaxHeight()
-                            .background(openCodeColor("markdown-quote-bar"), RoundedCornerShape(2.dp)),
-                )
-                MarkdownInlineText(
-                    inlines = block.inlines,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = openCodeColor("markdown-quote-text"),
-                    onLinkTap = onLinkTap,
-                    modifier = Modifier.weight(1f),
-                )
-            }
+            BlockQuoteView(
+                inlines = block.inlines,
+                onLinkTap = onLinkTap,
+            )
         is MarkdownBlock.BulletList ->
-            MarkdownList(
-                markers = List(block.items.size) { "•" },
+            TaskAwareBulletList(
                 items = block.items.map { it.inlines },
                 onLinkTap = onLinkTap,
             )
@@ -235,6 +218,178 @@ private fun MarkdownBlockView(
 
 @Composable
 private fun MarkdownList(
+    markers: List<String>,
+    items: List<List<MarkdownInline>>,
+    onLinkTap: ((String) -> Unit)?,
+) {
+    TaskAwareListContent(
+        markers = markers,
+        items = items,
+        onLinkTap = onLinkTap,
+    )
+}
+
+internal enum class MarkdownAlertKind(val label: String) {
+    Note("Note"),
+    Tip("Tip"),
+    Important("Important"),
+    Warning("Warning"),
+    Caution("Caution"),
+}
+
+internal data class AlertContent(
+    val kind: MarkdownAlertKind,
+    val inlines: List<MarkdownInline>,
+)
+
+internal fun parseAlertContent(inlines: List<MarkdownInline>): AlertContent? {
+    val plain = plainTextFromMarkdownInlines(inlines).trimStart()
+    if (!plain.startsWith("[!", ignoreCase = true)) return null
+    val end = plain.indexOf(']')
+    if (end !in 7..12) return null
+    val kind =
+        when (plain.substring(2, end).uppercase()) {
+            "NOTE" -> MarkdownAlertKind.Note
+            "TIP" -> MarkdownAlertKind.Tip
+            "IMPORTANT" -> MarkdownAlertKind.Important
+            "WARNING" -> MarkdownAlertKind.Warning
+            "CAUTION" -> MarkdownAlertKind.Caution
+            else -> return null
+        }
+    val stripped = stripAlertPrefix(inlines, end + 1) ?: return null
+    if (plainTextFromMarkdownInlines(stripped).isBlank()) return null
+    return AlertContent(kind, stripped)
+}
+
+private fun stripAlertPrefix(
+    inlines: List<MarkdownInline>,
+    prefixLength: Int,
+): List<MarkdownInline>? {
+    var remaining = prefixLength
+    val out = mutableListOf<MarkdownInline>()
+    var strippedAny = false
+    for (inline in inlines) {
+        if (remaining <= 0) {
+            out += inline
+            continue
+        }
+        when (inline) {
+            is MarkdownInline.Text -> {
+                if (inline.text.length <= remaining) {
+                    remaining -= inline.text.length
+                    strippedAny = true
+                } else {
+                    out += MarkdownInline.Text(inline.text.drop(remaining).trimStart('\n').trimStart())
+                    remaining = 0
+                    strippedAny = true
+                }
+            }
+            MarkdownInline.SoftBreak, MarkdownInline.HardBreak -> {
+                if (!strippedAny) continue
+                if (remaining > 0) {
+                    remaining -= 1
+                } else {
+                    out += inline
+                }
+            }
+            else -> {
+                if (strippedAny) out += inline
+                else return null
+            }
+        }
+    }
+    return out.takeIf { strippedAny }
+}
+
+@Composable
+private fun BlockQuoteView(
+    inlines: List<MarkdownInline>,
+    onLinkTap: ((String) -> Unit)?,
+) {
+    val alert = remember(inlines) { parseAlertContent(inlines) }
+    if (alert != null) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(openCodeColor("surface-base"), RoundedCornerShape(6.dp))
+                    .border(1.dp, openCodeColor("border-weak-base"), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                text = alert.kind.label.uppercase(),
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                color = openCodeColor("text-strong"),
+            )
+            MarkdownInlineText(
+                inlines = alert.inlines,
+                style = MaterialTheme.typography.bodyLarge,
+                color = openCodeColor("markdown-quote-text"),
+                onLinkTap = onLinkTap,
+            )
+        }
+        return
+    }
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .width(3.dp)
+                    .fillMaxHeight()
+                    .background(openCodeColor("markdown-quote-bar"), RoundedCornerShape(2.dp)),
+        )
+        MarkdownInlineText(
+            inlines = inlines,
+            style = MaterialTheme.typography.bodyLarge,
+            color = openCodeColor("markdown-quote-text"),
+            onLinkTap = onLinkTap,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+internal data class TaskItem(
+    val checked: Boolean?,
+    val inlines: List<MarkdownInline>,
+)
+
+internal fun parseTaskItem(inlines: List<MarkdownInline>): TaskItem {
+    val first = inlines.firstOrNull() as? MarkdownInline.Text ?: return TaskItem(null, inlines)
+    val text = first.text
+    val checked =
+        when {
+            text.startsWith("[ ] ") -> false
+            text.startsWith("[x] ", ignoreCase = true) -> true
+            else -> return TaskItem(null, inlines)
+        }
+    val strippedFirst = MarkdownInline.Text(text.drop(4))
+    val rest = listOf(strippedFirst) + inlines.drop(1)
+    return TaskItem(checked, rest.filter { it !is MarkdownInline.Text || it.text.isNotEmpty() })
+}
+
+@Composable
+private fun TaskAwareBulletList(
+    items: List<List<MarkdownInline>>,
+    onLinkTap: ((String) -> Unit)?,
+) {
+    val parsed = remember(items) { items.map(::parseTaskItem) }
+    val markers = parsed.map { if (it.checked == null) "•" else if (it.checked) "☑" else "☐" }
+    TaskAwareListContent(
+        markers = markers,
+        items = parsed.map { it.inlines },
+        onLinkTap = onLinkTap,
+    )
+}
+
+@Composable
+private fun TaskAwareListContent(
     markers: List<String>,
     items: List<List<MarkdownInline>>,
     onLinkTap: ((String) -> Unit)?,
@@ -300,6 +455,7 @@ private fun CodeBlockView(
 ) {
     val scrollState = rememberScrollState()
     val colors = codeColors()
+    val clipboard = LocalClipboardManager.current
     val annotated =
         rememberCodeAnnotatedString(
             code = block.code,
@@ -307,21 +463,50 @@ private fun CodeBlockView(
             colors = colors,
             forcePlain = forcePlainStreamingCode(isStreaming, block.code.length),
         )
-    Box(
+    Column(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
-                .horizontalScroll(scrollState)
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .background(openCodeColor("surface-base"), RoundedCornerShape(8.dp))
+                .border(1.dp, openCodeColor("border-weak-base"), RoundedCornerShape(8.dp)),
     ) {
-        Text(
-            text = annotated,
-            modifier = Modifier.wrapContentWidth(Alignment.Start, unbounded = true),
-            style = CodeTextStyle,
-            softWrap = false,
-        )
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = block.language?.takeIf { it.isNotBlank() } ?: "code",
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                color = openCodeColor("text-weak"),
+            )
+            Text(
+                text = "Copy",
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
+                color = openCodeColor("text-strong"),
+                modifier =
+                    Modifier
+                        .clickable { clipboard.setText(AnnotatedString(block.code)) }
+                        .padding(horizontal = 4.dp, vertical = 4.dp),
+            )
+        }
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(scrollState)
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+        ) {
+            Text(
+                text = annotated,
+                modifier = Modifier.wrapContentWidth(Alignment.Start, unbounded = true),
+                style = CodeTextStyle,
+                softWrap = false,
+            )
+        }
     }
 }
 
@@ -329,38 +514,71 @@ private fun CodeBlockView(
 private fun DiffBlockView(block: MarkdownBlock.DiffBlock) {
     val scrollState = rememberScrollState()
     val colors = codeColors()
+    val clipboard = LocalClipboardManager.current
     val annotatedLines = rememberDiffLineAnnotatedStrings(block.lines, colors)
+    val plainDiff = remember(block.lines) { block.lines.joinToString("\n") { it.text } }
     Column(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
-                .horizontalScroll(scrollState)
-                .padding(vertical = 8.dp),
+                .background(openCodeColor("surface-base"), RoundedCornerShape(8.dp))
+                .border(1.dp, openCodeColor("border-weak-base"), RoundedCornerShape(8.dp)),
     ) {
-        block.lines.forEachIndexed { index, line ->
-            val annotated = annotatedLines.getOrElse(index) { AnnotatedString(line.text) }
-            val background =
-                when (line.kind) {
-                    DiffLineKind.Added -> openCodeColor("diff-add").copy(alpha = 0.18f)
-                    DiffLineKind.Deleted -> openCodeColor("diff-delete").copy(alpha = 0.16f)
-                    DiffLineKind.Header -> openCodeColor("syntax-diff-unknown").copy(alpha = 0.14f)
-                    DiffLineKind.Context -> androidx.compose.ui.graphics.Color.Transparent
-                }
-            Box(
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = block.language?.takeIf { it.isNotBlank() } ?: "diff",
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                color = openCodeColor("text-weak"),
+            )
+            Text(
+                text = "Copy",
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
+                color = openCodeColor("text-strong"),
                 modifier =
                     Modifier
-                        .widthIn(min = 320.dp)
-                        .background(background)
-                        .padding(horizontal = 12.dp, vertical = 1.dp),
-            ) {
-                Text(
-                    text = annotated,
-                    modifier = Modifier.wrapContentWidth(Alignment.Start, unbounded = true),
-                    style = CodeTextStyle,
-                    softWrap = false,
-                )
+                        .clickable { clipboard.setText(AnnotatedString(plainDiff)) }
+                        .padding(horizontal = 4.dp, vertical = 4.dp),
+            )
+        }
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(scrollState)
+                    .padding(vertical = 8.dp),
+        ) {
+            Column {
+                block.lines.forEachIndexed { index, line ->
+                    val annotated = annotatedLines.getOrElse(index) { AnnotatedString(line.text) }
+                    val background =
+                        when (line.kind) {
+                            DiffLineKind.Added -> openCodeColor("diff-add").copy(alpha = 0.18f)
+                            DiffLineKind.Deleted -> openCodeColor("diff-delete").copy(alpha = 0.16f)
+                            DiffLineKind.Header -> openCodeColor("syntax-diff-unknown").copy(alpha = 0.14f)
+                            DiffLineKind.Context -> androidx.compose.ui.graphics.Color.Transparent
+                        }
+                    Box(
+                        modifier =
+                            Modifier
+                                .widthIn(min = 320.dp)
+                                .background(background)
+                                .padding(horizontal = 12.dp, vertical = 1.dp),
+                    ) {
+                        Text(
+                            text = annotated,
+                            modifier = Modifier.wrapContentWidth(Alignment.Start, unbounded = true),
+                            style = CodeTextStyle,
+                            softWrap = false,
+                        )
+                    }
+                }
             }
         }
     }
@@ -422,7 +640,7 @@ private fun TableView(
                 Modifier
                     .then(if (needsScroll) Modifier.horizontalScroll(scrollState) else Modifier)
                     .fillMaxWidth()
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp)),
+                    .border(1.dp, openCodeColor("border-weak-base"), RoundedCornerShape(8.dp)),
         ) {
             TableRowView(block.header, columnWidths = columnWidths, isHeader = true, onLinkTap = onLinkTap)
             block.rows.forEach { row ->
@@ -450,10 +668,10 @@ private fun TableRowView(
                 modifier =
                     Modifier
                         .width(width)
-                        .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
+                        .border(0.5.dp, openCodeColor("border-weak-base"))
                         .background(
                             if (isHeader) {
-                                MaterialTheme.colorScheme.surfaceVariant
+                                openCodeColor("surface-base")
                             } else {
                                 MaterialTheme.colorScheme.surface
                             },
