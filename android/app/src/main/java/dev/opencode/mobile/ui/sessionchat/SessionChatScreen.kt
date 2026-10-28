@@ -77,6 +77,8 @@ import dev.opencode.mobile.domain.session.OptimisticSessionCreate
 import dev.opencode.mobile.domain.session.SessionTodoList
 import dev.opencode.mobile.domain.session.SideQuestion
 import dev.opencode.mobile.domain.worktree.WorktreeCreateCopy
+import dev.opencode.mobile.notification.AgentNotificationHelper
+import dev.opencode.mobile.notification.AppVisibility
 import dev.opencode.mobile.theme.OpenCodeTheme
 import dev.opencode.mobile.theme.openCodeColor
 import dev.opencode.mobile.ui.components.BottomSheetEntryDecorator
@@ -256,6 +258,17 @@ private fun SessionChatScreenBody(
 
     LaunchedEffect(sessionId, sessionTitle, worktree) {
         viewModel.bind(sessionId, sessionTitle, worktree)
+    }
+    // The session is on screen: suppress its system notifications (in-app UI
+    // owns it) and clear any tray entries posted while backgrounded.
+    DisposableEffect(sessionId) {
+        AppVisibility.visibleSessionId = sessionId
+        AgentNotificationHelper(context).cancelSessionNotifications(sessionId)
+        onDispose {
+            if (AppVisibility.visibleSessionId == sessionId) {
+                AppVisibility.visibleSessionId = null
+            }
+        }
     }
     // The entry stays on the back stack (and keeps its ViewModel) while a child route
     // is on top, so clear Ready focus whenever the screen leaves composition, not only

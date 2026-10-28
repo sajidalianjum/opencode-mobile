@@ -22,8 +22,7 @@ object AttachmentDataUrl {
         bytes: ByteArray,
         mime: String,
     ): String? {
-        val normalizedMime = mime.lowercase()
-        if (kind(normalizedMime) == null) return null
+        val normalizedMime = mime.lowercase().takeIf { it.isNotBlank() } ?: return null
         return "data:$normalizedMime;base64,${Base64.Default.encode(bytes)}"
     }
 
@@ -49,13 +48,13 @@ object AttachmentDataUrl {
     fun validates(
         value: String,
         mime: String,
-    ): Boolean = kind(mime) != null && decode(value, mime) != null
+    ): Boolean = mime.isNotBlank() && decode(value, mime) != null
 
     fun mimeFromDataUrl(value: String): String? {
         if (!value.startsWith("data:", ignoreCase = true)) return null
         val header = value.substringAfter("data:").substringBefore(',', missingDelimiterValue = "")
         val mime = header.substringBefore(';').trim().lowercase()
-        return mime.takeIf { it.isNotEmpty() && kind(it) != null }
+        return mime.takeIf { it.isNotEmpty() }
     }
 
     fun mimeFromFilename(filename: String): String? {

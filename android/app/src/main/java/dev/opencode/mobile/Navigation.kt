@@ -57,6 +57,7 @@ import dev.opencode.mobile.domain.preferences.HomeDisplayPreferences
 import dev.opencode.mobile.domain.preferences.MarkdownHighlightPreferences
 import dev.opencode.mobile.domain.preferences.SessionChatDisplayPreferences
 import dev.opencode.mobile.domain.security.AppLockAvailability
+import dev.opencode.mobile.notification.NotificationDeepLink
 import dev.opencode.mobile.theme.OpenCodeTheme
 import dev.opencode.mobile.ui.componentgallery.ComponentGalleryDetailScreen
 import dev.opencode.mobile.ui.componentgallery.ComponentGalleryEntries
@@ -188,7 +189,7 @@ internal fun <T : Any> rememberMainNavEntryDecorators(): List<NavEntryDecorator<
     )
 
 @Composable
-fun MainNavigation() {
+fun MainNavigation(notificationDeepLink: NotificationDeepLink) {
     val rootViewModel: AppRootViewModel = hiltViewModel()
     val rootState by rootViewModel.state.collectAsStateWithLifecycle()
     val presentConnectionSetupAfterOnboarding by
@@ -204,6 +205,21 @@ fun MainNavigation() {
     val backStack = rememberNavBackStack(ProjectListHome)
     val rootChatFlowNavigator = remember(backStack) { backStack.rootChatFlowNavigator() }
     val homeResetGeneration by rootViewModel.homeResetGeneration.collectAsStateWithLifecycle()
+    // A notification tap records a pending session open; push its chat once home is ready.
+    val pendingDeepLink by notificationDeepLink.pending.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingDeepLink, rootState) {
+        val pending = pendingDeepLink ?: return@LaunchedEffect
+        if (rootState != AppRootState.Home) return@LaunchedEffect
+        notificationDeepLink.consume()
+        if ((backStack.lastOrNull() as? SessionChat)?.sessionId == pending.sessionId) return@LaunchedEffect
+        backStack.add(
+            SessionChat(
+                sessionId = pending.sessionId,
+                sessionTitle = pending.title,
+                worktree = pending.worktree,
+            ),
+        )
+    }
     LaunchedEffect(homeResetGeneration) {
         if (homeResetGeneration == 0) return@LaunchedEffect
         while (backStack.size > 1) {

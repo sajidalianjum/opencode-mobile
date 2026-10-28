@@ -7663,7 +7663,7 @@ class SessionChatViewModelTest {
         }
 
     @Test
-    fun genericFile_neverGoesInlineWhenUploadsAreUnavailable() =
+    fun genericFile_goesInlineWhenUploadsAreUnavailable() =
         runTest(testDispatcher) {
             val viewModel = createViewModel(FakeMessageRepository())
             viewModel.bind("ses-1", "Title", "/repo")
@@ -7672,14 +7672,10 @@ class SessionChatViewModelTest {
             viewModel.addAttachments(listOf(uploadCandidate("data.zip", stagedFile("data.zip"), "application/zip", AttachmentKind.File)))
             advanceUntilIdle()
 
-            assertTrue(
-                viewModel.uiState.value.composer.attachments
-                    .isEmpty(),
-            )
+            val attached = viewModel.uiState.value.composer.attachments
             assertEquals(
-                "Only images, PDFs, or text files can be attached here.",
-                viewModel.uiState.value.snackbar
-                    ?.message,
+                listOf("data.zip"),
+                attached.map { it.filename },
             )
         }
 

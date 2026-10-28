@@ -57,13 +57,21 @@ class AttachmentIngestionServiceTest {
     }
 
     @Test
-    fun ingest_unsupportedType_rejectsSelection() {
-        val error =
-            assertThrows(IllegalArgumentException::class.java) {
-                service.ingest("archive.zip", "application/zip", byteArrayOf(1, 2, 3))
-            }
+    fun ingest_genericType_acceptsAsOpaqueFile() {
+        val attachment = service.ingest("archive.zip", "application/zip", byteArrayOf(1, 2, 3))
 
-        assertEquals(AttachmentIngestionService.UNSUPPORTED_ERROR, error.message)
+        assertEquals(AttachmentKind.File, attachment.kind)
+        assertEquals("application/zip", attachment.mime)
+        assertNull(attachment.previewBytes)
+    }
+
+    @Test
+    fun ingest_unknownTypeWithoutMime_acceptsAsBinary() {
+        val attachment = service.ingest("blob.unknownext", null, byteArrayOf(1, 2, 3))
+
+        assertEquals(AttachmentKind.File, attachment.kind)
+        assertEquals("application/octet-stream", attachment.mime)
+        assertNull(attachment.previewBytes)
     }
 
     @Test

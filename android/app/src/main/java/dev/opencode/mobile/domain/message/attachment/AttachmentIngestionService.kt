@@ -99,9 +99,7 @@ class AttachmentIngestionService private constructor(
         if (metadata.size != null && metadata.size > AttachmentLimits.MAX_DECODED_BYTES) {
             throw IllegalArgumentException(AttachmentLimits.TOO_LARGE_ERROR)
         }
-        val accepted =
-            acceptedType(contentResolver.getType(uri), metadata.filename)
-                ?: throw IllegalArgumentException(UNSUPPORTED_ERROR)
+        val accepted = acceptedType(contentResolver.getType(uri), metadata.filename)
         // Providers may report no size; never buffer more than the limit before deciding.
         val bytes =
             contentResolver.openInputStream(uri)?.use { readBounded(it, AttachmentLimits.MAX_DECODED_BYTES) }
@@ -113,10 +111,7 @@ class AttachmentIngestionService private constructor(
         filename: String,
         rawMime: String?,
         bytes: ByteArray,
-    ): Attachment {
-        val accepted = acceptedType(rawMime, filename) ?: throw IllegalArgumentException(UNSUPPORTED_ERROR)
-        return ingest(filename, accepted, bytes)
-    }
+    ): Attachment = ingest(filename, acceptedType(rawMime, filename), bytes)
 
     private fun ingest(
         filename: String,
@@ -125,9 +120,6 @@ class AttachmentIngestionService private constructor(
     ): Attachment {
         if (bytes.size.toLong() > AttachmentLimits.MAX_DECODED_BYTES) {
             throw IllegalArgumentException(AttachmentLimits.TOO_LARGE_ERROR)
-        }
-        if (AttachmentDataUrl.kind(accepted.mime) == null) {
-            throw IllegalArgumentException(UNSUPPORTED_ERROR)
         }
         val preview =
             if (accepted.kind == AttachmentKind.Image) {
@@ -195,7 +187,7 @@ class AttachmentIngestionService private constructor(
     private fun acceptedType(
         rawMime: String?,
         filename: String,
-    ): AcceptedType? {
+    ): AcceptedType {
         val mime = rawMime?.lowercase(Locale.US)?.substringBefore(';')
         val extension = filename.substringAfterLast('.', "").lowercase(Locale.US)
         val imageMime =
@@ -207,11 +199,15 @@ class AttachmentIngestionService private constructor(
                 extension == "webp" -> "image/webp"
                 else -> null
             }
+        // The v2 `files` API takes any `data:` URI, so ingestion never rejects
+        // a type: known kinds keep their mapping, anything else travels as
+        // opaque bytes (generic File) instead of an "Only images..." error.
         return when {
             imageMime != null -> AcceptedType(imageMime, AttachmentKind.Image)
             mime == "application/pdf" || extension == "pdf" -> AcceptedType("application/pdf", AttachmentKind.Pdf)
             mime?.startsWith("text/") == true || extension in TEXT_EXTENSIONS -> AcceptedType("text/plain", AttachmentKind.Text)
-            else -> null
+            !mime.isNullOrBlank() -> AcceptedType(mime, AttachmentDataUrl.kindOrFile(mime))
+            else -> AcceptedType(AttachmentMime.BINARY, AttachmentKind.File)
         }
     }
 

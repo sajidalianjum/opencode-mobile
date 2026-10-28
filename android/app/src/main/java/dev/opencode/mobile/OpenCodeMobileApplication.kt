@@ -1,7 +1,9 @@
 package dev.opencode.mobile
 
+import android.app.Activity
 import android.app.Application
 import android.content.Context
+import android.os.Bundle
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
@@ -21,6 +23,9 @@ import dev.opencode.mobile.domain.preferences.SessionChatDisplayPreferences
 import dev.opencode.mobile.domain.preferences.SplitPanePreferences
 import dev.opencode.mobile.domain.textmate.TextMateProcessPressureObserver
 import dev.opencode.mobile.markdown.OpenCodeAndroidMarkdownAssets
+import dev.opencode.mobile.notification.AgentNotificationHelper
+import dev.opencode.mobile.notification.AgentNotificationMonitor
+import dev.opencode.mobile.notification.AppVisibility
 import dev.opencode.mobile.platform.FrameworkSdkLevel
 import dev.opencode.mobile.theme.ThemeManager
 
@@ -33,6 +38,13 @@ class OpenCodeMobileApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        registerActivityLifecycleCallbacks(visibilityCallbacks)
+        // Creates the alert/monitor channels before any event can notify.
+        AgentNotificationHelper(this)
+        EntryPointAccessors
+            .fromApplication(this, NotificationMonitorEntryPoint::class.java)
+            .agentNotificationMonitor()
+            .start()
         ThemeManager.initialize(this)
         HomeDisplayPreferences.initialize(this)
         MarkdownHighlightPreferences.initialize(this)
@@ -55,6 +67,37 @@ class OpenCodeMobileApplication : Application() {
         hangWatchdogEntry.diagnosticLogBuffer()
         hangWatchdogEntry.mainThreadHangWatchdog().start()
     }
+
+    private companion object {
+        val visibilityCallbacks =
+            object : ActivityLifecycleCallbacks {
+                override fun onActivityStarted(activity: Activity) = AppVisibility.onActivityStarted()
+
+                override fun onActivityStopped(activity: Activity) = AppVisibility.onActivityStopped()
+
+                override fun onActivityCreated(
+                    activity: Activity,
+                    savedInstanceState: Bundle?,
+                ) = Unit
+
+                override fun onActivityDestroyed(activity: Activity) = Unit
+
+                override fun onActivityPaused(activity: Activity) = Unit
+
+                override fun onActivityResumed(activity: Activity) = Unit
+
+                override fun onActivitySaveInstanceState(
+                    activity: Activity,
+                    outState: Bundle,
+                ) = Unit
+            }
+    }
+}
+
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface NotificationMonitorEntryPoint {
+    fun agentNotificationMonitor(): AgentNotificationMonitor
 }
 
 @EntryPoint
