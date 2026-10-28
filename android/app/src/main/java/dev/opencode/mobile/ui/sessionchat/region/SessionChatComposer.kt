@@ -44,6 +44,7 @@ import dev.opencode.mobile.domain.message.PromptSendProgressReporter
 import dev.opencode.mobile.domain.message.ShellCommandOptions
 import dev.opencode.mobile.domain.message.UnavailableAttachmentUploadService
 import dev.opencode.mobile.domain.model.ModelCatalogStore
+import dev.opencode.mobile.domain.model.ModelFavoritesStore
 import dev.opencode.mobile.domain.model.ModelSelection
 import dev.opencode.mobile.domain.model.ModelSelectionCatalog
 import dev.opencode.mobile.domain.model.ModelSelectionConnectionIdentity
@@ -105,8 +106,19 @@ class SessionChatComposer(
     private val foregroundEventStream: ForegroundEventStream? = null,
     private val projectFilesRepository: ProjectFilesRepository? = null,
     private val attachmentUploads: AttachmentUploadService = UnavailableAttachmentUploadService,
+    private val modelFavoritesStore: ModelFavoritesStore = dev.opencode.mobile.domain.model.InMemoryModelFavoritesStore(),
 ) {
     var ioDispatcher: CoroutineDispatcher = kotlinx.coroutines.Dispatchers.IO
+
+    init {
+        scope.launch {
+            modelFavoritesStore.favorites.collect { favorites ->
+                _state.update { state ->
+                    state.copy(composer = state.composer.copy(favoriteModelIds = favorites))
+                }
+            }
+        }
+    }
 
     /** Debounce before `findFiles` while an `@` query is open. Tests set this to 0. */
     var fileSearchDelayMs: Long = 200L
@@ -1079,6 +1091,11 @@ class SessionChatComposer(
         }
         persistCurrentSelection(updatePreference = true)
         discardStoredAttachments(dropped)
+    }
+
+    /** Stars or unstars a model; the picker keeps favorites at the top. */
+    fun toggleModelFavorite(option: ModelSelectionOption) {
+        scope.launch { modelFavoritesStore.toggleFavorite(option.id) }
     }
 
     fun selectMode(mode: String) {

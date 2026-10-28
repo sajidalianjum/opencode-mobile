@@ -45,6 +45,7 @@ import dev.opencode.mobile.domain.message.UnavailableAttachmentUploadService
 import dev.opencode.mobile.domain.message.UnavailableServerFilePreviews
 import dev.opencode.mobile.ui.changes.TurnDiffUnavailable
 import dev.opencode.mobile.domain.model.ModelCatalogStore
+import dev.opencode.mobile.domain.model.ModelFavoritesStore
 import dev.opencode.mobile.domain.model.ModelSelectionOption
 import dev.opencode.mobile.domain.model.NewSessionModelSelectionResolver
 import dev.opencode.mobile.domain.model.SessionModelSelectionStore
@@ -147,6 +148,7 @@ class SessionChatViewModel
         sideQuestionStore: SideQuestionStore? = null,
         private val serverFilePreviews: ServerFilePreviews = UnavailableServerFilePreviews,
         private val attachmentUploads: AttachmentUploadService = UnavailableAttachmentUploadService,
+        modelFavoritesStore: ModelFavoritesStore = dev.opencode.mobile.domain.model.InMemoryModelFavoritesStore(),
     ) : ViewModel() {
         internal var ioDispatcher: CoroutineDispatcher = Dispatchers.IO
             set(value) {
@@ -195,6 +197,7 @@ class SessionChatViewModel
                 foregroundEventStream = foregroundEventStream,
                 projectFilesRepository = projectFilesRepository,
                 attachmentUploads = attachmentUploads,
+                modelFavoritesStore = modelFavoritesStore,
             )
         private val sessionInfo =
             SessionInfo(
@@ -1032,6 +1035,21 @@ class SessionChatViewModel
                 screenId = ProductAnalytics.Screen.SESSION_MODEL_PICKER,
             )
             composer.selectModel(option)
+        }
+
+        /** Stars or unstars a model in the picker; favorites stay at the top. */
+        fun toggleModelFavorite(option: ModelSelectionOption) {
+            val starring = option.id !in composer.state.value.composer.favoriteModelIds
+            logAction(
+                actionId =
+                    if (starring) {
+                        ProductAnalytics.Action.MODEL_PICKER_STAR_MODEL
+                    } else {
+                        ProductAnalytics.Action.MODEL_PICKER_UNSTAR_MODEL
+                    },
+                screenId = ProductAnalytics.Screen.SESSION_MODEL_PICKER,
+            )
+            composer.toggleModelFavorite(option)
         }
 
         fun selectMode(mode: String) {

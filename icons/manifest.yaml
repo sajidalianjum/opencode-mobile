@@ -26,6 +26,9 @@ icons:
   - name: keyboard_arrow_down
     lucide: chevron-down
     notes: Title switcher chevron after home server name
+  - name: drag_handle
+    lucide: grip-vertical
+    notes: Reorder drag handle
   - name: close
     lucide: x
     notes: Dismiss / close
@@ -125,3 +128,6 @@ icons:
   - name: lock
     lucide: lock
     notes: App lock toggle and the privacy cover shown while the app is in the background
+  - name: star
+    lucide: star
+    notes: Favorite / starred model in the Session Chat model picker

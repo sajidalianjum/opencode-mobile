@@ -7,6 +7,7 @@ lucide/arrow-down/arrow_downward:lucide_arrow_downward
 lucide/check/check:lucide_check
 lucide/chevron-right/chevron_right:lucide_chevron_right
 lucide/chevron-down/keyboard_arrow_down:lucide_keyboard_arrow_down
+lucide/grip-vertical/drag_handle:lucide_drag_handle
 lucide/x/close:lucide_close
 lucide/copy/content_copy:lucide_content_copy
 lucide/minimize-2/collapse_content:lucide_collapse_content
@@ -42,3 +43,4 @@ lucide/mic/mic:lucide_mic
 lucide/plug/plug:lucide_plug
 lucide/code/code:lucide_code
 lucide/lock/lock:lucide_lock
+lucide/star/star:lucide_star
